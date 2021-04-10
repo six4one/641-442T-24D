@@ -11,21 +11,29 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // MAX31855 digital IO pins for ESP32 NodeMCU.
-#define MAXDO   19
-#define MAXCS   5
-#define MAXCLK  18
+#define MAXDO 19
+#define MAXCS0 17
+#define MAXCS1 16
+#define MAXCLK 18
 
-// initialize the Thermocouple
-Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
+
+// initialize the Thermocouple #0
+//Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS0, MAXDO);
+
+// initialize the Thermocouple #1
+//Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS1, MAXDO);
 
 // Pin Map for ESP32 NodeMCU
-int ONBOARD_LED = 2;
-int statusLed = 21;
-int out0 = 17;
-int out1 = 16;
-int in0 = 36;
-int in1 = 39;
+//int ONBOARD_LED = 2;
+int statusLed = 32;
+int out0 = 25;
+int out1 = 26;
+int out2 = 33;
+int out3 = 27;
+int in0 = 39;
+int in1 = 36;
 int in2 = 34;
+int in3 = 35;
 
 unsigned int length;
 
@@ -91,13 +99,16 @@ void setup() {
   delay(2000);
   Serial.println("running setup");
 
-  pinMode(ONBOARD_LED, OUTPUT);
+  //pinMode(ONBOARD_LED, OUTPUT);
   pinMode(statusLed, OUTPUT);
   pinMode(out0, OUTPUT);
   pinMode(out1, OUTPUT);
+  pinMode(out2, OUTPUT);
+  pinMode(out3, OUTPUT);
   pinMode(in0, INPUT_PULLDOWN);
   pinMode(in1, INPUT_PULLDOWN);
   pinMode(in2, INPUT_PULLDOWN);
+  pinMode(in3, INPUT_PULLDOWN);
  
   WiFi.begin(ssid, password);
 
