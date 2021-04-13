@@ -170,7 +170,9 @@ while (!client.connected()) {
 
   //MQTT Subscriptions for control of digital outputs
   client.subscribe(inTopic0);
-  client.subscribe(inTopic1); 
+  client.subscribe(inTopic1);
+  client.subscribe(inTopic2);
+  client.subscribe(inTopic3);
 
 //Max31855 Setup
 //  Serial.begin(9600);
