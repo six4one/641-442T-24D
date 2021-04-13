@@ -2,7 +2,7 @@
 #include <wire.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Home Network Credentials\credentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\credentials.h"
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
 #include "topicList.h"
@@ -42,17 +42,22 @@ String outPayload = "";
 boolean in0Previous =0;
 boolean in1Previous =0;
 boolean in2Previous =0;
+boolean in3Previous =0;
 boolean in0Current;
 boolean in1Current;
 boolean in2Current;
+boolean in3Current;
 boolean in0State = false;
 boolean in1State = false;
 boolean in2State = false;
+boolean in3State = false;
 
 unsigned long lastTimeT1 =0;
+unsigned long lastTimeT2 =0;
 unsigned long lastTimeIn0 =0;
 unsigned long lastTimeIn1 =0;
-unsigned long lastTimeIn2 =0; 
+unsigned long lastTimeIn2 =0;
+unsigned long lastTimeIn3 =0;
 unsigned long currentTime =0;
 
 int publishInterval = 3000;   //number of milliseconds for periodic publishing data logging events
@@ -90,6 +95,33 @@ void callback(char* inTopic, byte* inPayload, unsigned int length) {
       Serial.println(": OFF");    
     }
   }
+
+  if (strcmp(inTopic,inTopic2)==0){
+    if (inPayload[0] == '1'){
+      //out2State = true;    //force synchronization of the ledState variable with the MQTT switch
+      digitalWrite(out2, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": ON");      
+    }else{
+      digitalWrite(out2, LOW);
+      Serial.print(inTopic);
+      Serial.println(": OFF");    
+    }
+  }
+
+  if (strcmp(inTopic,inTopic3)==0){
+    if (inPayload[0] == '1'){
+      //out3State = true;    //force synchronization of the ledState variable with the MQTT switch
+      digitalWrite(out3, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": ON");      
+    }else{
+      digitalWrite(out3, LOW);
+      Serial.print(inTopic);
+      Serial.println(": OFF");    
+    }
+  }
+
 return;  
 }
 
@@ -277,7 +309,31 @@ void loop() {
     }
   }
 
-
+in3Current = digitalRead(in3);
+  if(in3Current != in3Previous){
+    if (currentTime-lastTimeIn3 > debounceDelay){;    //debounce delay
+      if(in3Current != in3Previous){
+        if(in3Current == true){     //rising edge
+          outPayload = "1";
+          if (client.publish(outTopic3, (char*) outPayload.c_str())){
+            Serial.print(outTopic3);
+            Serial.println(": 1");
+          }else {
+              Serial.println("Publish failed");
+          }
+        }else{    //falling edge
+          outPayload = "0";
+          if (client.publish(outTopic3, (char*) outPayload.c_str())){
+            Serial.print(outTopic3);
+            Serial.println(": 0");
+          }else {
+              Serial.println("Publish failed");
+          }
+        }
+        in3Previous = in3Current;   
+      }
+    }
+  }
 
 
   delay(100);
