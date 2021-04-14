@@ -36,7 +36,9 @@ int in3 = 35;
 unsigned int length;
 
 String outPayload = "";
+String outTopic = "";
 
+boolean tcToggle =0;
 boolean in0Previous =0;
 boolean in1Previous =0;
 boolean in2Previous =0;
@@ -50,8 +52,7 @@ boolean in1State = false;
 boolean in2State = false;
 boolean in3State = false;
 
-unsigned long lastTimeT1 =0;
-unsigned long lastTimeT2 =0;
+unsigned long lastTime =0;
 unsigned long lastTimeIn0 =0;
 unsigned long lastTimeIn1 =0;
 unsigned long lastTimeIn2 =0;
@@ -212,28 +213,35 @@ void loop() {
 
 
 
-/*
-  if(currentTime-lastTimeT1 >= publishInterval){
-    double temp = thermocouple.readCelsius();
-    if (isnan(temp)) {
-      Serial.println("Something wrong with thermocouple!");
-    } else {
-      Serial.print("C = ");
-      Serial.println(temp);
-      outTopic = "temp";
-      outPayload = String(temp);
-      if (client.publish(outTopic, (char*) outPayload.c_str())){
-        Serial.println("Publish ok");
-        Serial.println(outTopic);
-        lastTime = currentTime;
-      }else {
-        Serial.println("Publish failed");
+  if(currentTime-lastTime >= publishInterval){
+    if(tcToggle){
+      digitalWrite(MAXCS0, HIGH);
+      double temp = thermocouple0.readCelsius();
+      digitalWrite(MAXCS0, LOW);
+      if (isnan(temp)) {
+        Serial.println("Something wrong with thermocouple0!");
+      } else {
+        Serial.print("Temp 0 = ");
+        Serial.println(temp);
+        Serial.println(" °C");
+        outTopic = "temp"; //temp0Topic;
+        outPayload = String(temp);
+        if (client.publish(outTopic, (char*) outPayload.c_str())){
+          Serial.println("Publish ok");
+          Serial.println(outTopic);
+          lastTime = currentTime;
+        }else {
+          Serial.println("Publish failed");
+        }
       }
+    }else{
+      Serial.print("Toggle is working");
     }
+  tcToggle = !tcToggle;
+
    //Serial.print("F = ");
    //Serial.println(thermocouple.readFahrenheit());
   }
-*/
 
 
 
