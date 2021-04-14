@@ -24,8 +24,7 @@ PubSubClient client(espClient);
 // initialize the Thermocouple #1
 //Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS1, MAXDO);
 
-// Pin Map for ESP32 NodeMCU
-//int ONBOARD_LED = 2;
+// Pin Map for ESP32 module
 int statusLed = 32;
 int out0 = 25;
 int out1 = 26;
