@@ -16,13 +16,11 @@ PubSubClient client(espClient);
 #define MAXCS0 17
 #define MAXCS1 16
 
-
-
 // initialize the Thermocouple #0
-//Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS0, MAXDO);
+Adafruit_MAX31855 thermocouple0(MAXCLK, MAXCS0, MAXDO);
 
 // initialize the Thermocouple #1
-//Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS1, MAXDO);
+Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS1, MAXDO);
 
 // Pin Map for ESP32 module
 int statusLed = 32;
@@ -60,7 +58,7 @@ unsigned long lastTimeIn2 =0;
 unsigned long lastTimeIn3 =0;
 unsigned long currentTime =0;
 
-int publishInterval = 3000;   //number of milliseconds for periodic publishing data logging events
+int publishInterval = 5000;   //number of milliseconds for periodic publishing data logging events
 int debounceDelay = 20;       //delay to ensure input signal debounce in milliseconds
 
 void callback(char* inTopic, byte* inPayload, unsigned int length) {
@@ -183,6 +181,18 @@ while (!client.connected()) {
   // wait for MAX chip to stabilize
   delay(500);
 
+  // read the current internal temp of chip 0
+  Serial.print("Internal Temp of chip 0 = ");
+  digitalWrite(MAXCS0, HIGH);
+  Serial.println(thermocouple0.readInternal());
+  digitalWrite(MAXCS0, LOW);
+
+  // read the current internal temp of chip 1
+  Serial.print("Internal Temp of chip 1 = ");
+  digitalWrite(MAXCS1, HIGH);
+  Serial.println(thermocouple1.readInternal());
+  digitalWrite(MAXCS1, LOW);
+
   //Status LED test
   digitalWrite(statusLed, HIGH);
   delay(500);
@@ -193,17 +203,13 @@ while (!client.connected()) {
 
 
 
-
 void loop() {
   // put your main code here, to run repeatedly:
 
   client.loop();
 
   currentTime = millis();
-//From Max31855
-  // basic readout test, just print the current temp
-   //Serial.print("Internal Temp = ");
-  // Serial.println(thermocouple.readInternal());
+
 
 
 /*
