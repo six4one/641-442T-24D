@@ -10,11 +10,12 @@
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// MAX31855 digital IO pins for ESP32 NodeMCU.
+// MAX31855 digital IO pins mapped to ESP32 module.
 #define MAXDO 19
+#define MAXCLK 18
 #define MAXCS0 17
 #define MAXCS1 16
-#define MAXCLK 18
+
 
 
 // initialize the Thermocouple #0
