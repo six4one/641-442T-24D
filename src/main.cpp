@@ -133,6 +133,8 @@ void setup() {
 
   //pinMode(ONBOARD_LED, OUTPUT);
   pinMode(statusLed, OUTPUT);
+  pinMode(MAXCS0, OUTPUT);
+  pinMode(MAXCS1, OUTPUT);
   pinMode(out0, OUTPUT);
   pinMode(out1, OUTPUT);
   pinMode(out2, OUTPUT);
@@ -187,15 +189,15 @@ while (!client.connected()) {
 
   // read the current internal temp of chip 0
   Serial.print("Internal Temp of chip 0 = ");
-  digitalWrite(MAXCS0, HIGH);
-  Serial.println(thermocouple0.readInternal());
   digitalWrite(MAXCS0, LOW);
+  Serial.println(thermocouple0.readInternal());
+  digitalWrite(MAXCS0, HIGH);
 
   // read the current internal temp of chip 1
   Serial.print("Internal Temp of chip 1 = ");
-  digitalWrite(MAXCS1, HIGH);
-  Serial.println(thermocouple1.readInternal());
   digitalWrite(MAXCS1, LOW);
+  Serial.println(thermocouple1.readInternal());
+  digitalWrite(MAXCS1, HIGH);
 
   //Status LED test
   digitalWrite(statusLed, HIGH);
@@ -238,7 +240,26 @@ void loop() {
         }
       }
     }else{
-      Serial.print("Toggle is working");
+      //Serial.print("Toggle is working");
+      digitalWrite(MAXCS1, LOW);
+      double temp = thermocouple1.readCelsius();
+      digitalWrite(MAXCS1, HIGH);
+      if (isnan(temp)) {
+        Serial.println("Something wrong with thermocouple0!");
+      } else {
+        Serial.print("Temp 1 = ");
+        Serial.println(temp);
+        Serial.println(" °C");
+        //outTopic = "temp"; //temp0Topic;
+        outPayload = String(temp);
+        if (client.publish(temp1Topic, (char*) outPayload.c_str())){
+          Serial.println ("Publish ok");
+          Serial.println(temp1Topic);
+          lastTime = currentTime;
+        }else {
+          Serial.println("Publish failed");
+        }
+      }      
     }
   tcToggle = !tcToggle;
 
