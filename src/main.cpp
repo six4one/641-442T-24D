@@ -3,7 +3,7 @@
 #include <WiFiClientSecure.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\credentials.h"
 #include <PubSubClient.h>
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\credentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\serverCert.h"
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
 #include "topicList.h"
@@ -37,7 +37,7 @@ int in3 = 35;
 unsigned int length;
 
 String outPayload = "";
-String outTopic = "";
+//String outTopic = "";
 
 boolean tcToggle =0;
 boolean in0Previous =0;
@@ -227,11 +227,11 @@ void loop() {
         Serial.print("Temp 0 = ");
         Serial.println(temp);
         Serial.println(" °C");
-        outTopic = "temp"; //temp0Topic;
+        //outTopic = "temp"; //temp0Topic;
         outPayload = String(temp);
-        if (client.publish(outTopic, (char*) outPayload.c_str())){
-          Serial.println("Publish ok");
-          Serial.println(outTopic);
+        if (client.publish(temp0Topic, (char*) outPayload.c_str())){
+          Serial.println ("Publish ok");
+          Serial.println(temp0Topic);
           lastTime = currentTime;
         }else {
           Serial.println("Publish failed");
