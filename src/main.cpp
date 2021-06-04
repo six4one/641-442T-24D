@@ -1,13 +1,14 @@
 #include <Arduino.h>
 #include <wire.h>
-#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\serverCert.h"
 #include <PubSubClient.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\credentials.h"
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
 #include "topicList.h"
 
-WiFiClient espClient;
+WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
 // MAX31855 digital IO pins for ESP32 NodeMCU.
@@ -143,6 +144,8 @@ void setup() {
   pinMode(in3, INPUT_PULLDOWN);
  
   WiFi.begin(ssid, password);
+  espClient.setCACert(test_root_ca);
+  //espClient.connect()
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
