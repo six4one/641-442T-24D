@@ -1,12 +1,14 @@
 #include <Arduino.h>
 #include <wire.h>
 #include <WiFiClientSecure.h>
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\credentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Home_Net\credentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\MQTT_credentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\topicList-f2.h"
 #include <PubSubClient.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\serverCert.h"
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
-#include "topicList.h"
+//#include "topicList.h"
 
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
@@ -160,7 +162,7 @@ void setup() {
 while (!client.connected()) {
     Serial.println("Connecting to MQTT...");
  
-    if (client.connect("ESP8266Client", mqttUser, mqttPassword )) {
+    if (client.connect(deviceID, mqttUser, mqttPassword )) {
        Serial.println("connected");  
      }else {
         Serial.print("failed with state ");
