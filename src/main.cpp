@@ -3,7 +3,7 @@
 #include <WiFiClientSecure.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Home_Net\credentials.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\MQTT_credentials.h"
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\topicList-f2.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\topicList-f3.h"
 #include <PubSubClient.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\serverCert.h"
 #include <SPI.h>
