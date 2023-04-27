@@ -1,11 +1,11 @@
 #include <Arduino.h>
 #include <wire.h>
 #include <WiFiClientSecure.h>
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Home_Net\credentials.h"
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\MQTT_credentials.h"
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode_MQTT\topicList-f3.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\home\wifiCredentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\mqtt\linode\mqttCredentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\certs\linode\serverCert.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_topics\furnace\topicList-f1.h"
 #include <PubSubClient.h>
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\Linode Network Credentials\serverCert.h"
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
 //#include "topicList.h"
@@ -146,7 +146,7 @@ void setup() {
   pinMode(in2, INPUT_PULLDOWN);
   pinMode(in3, INPUT_PULLDOWN);
  
-  WiFi.begin(ssid, password);
+  WiFi.begin(wifiSSID, wifiPW);
   espClient.setCACert(test_root_ca);
   //espClient.connect()
 
@@ -162,7 +162,7 @@ void setup() {
 while (!client.connected()) {
     Serial.println("Connecting to MQTT...");
  
-    if (client.connect(deviceID, mqttUser, mqttPassword )) {
+    if (client.connect(deviceID, mqttUser, mqttPW )) {
        Serial.println("connected");  
      }else {
         Serial.print("failed with state ");
