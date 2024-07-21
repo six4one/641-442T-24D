@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <wire.h>
 #include <WiFiClientSecure.h>
-//#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\home\wifiCredentials.h"
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\act\wifiCredentials.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\home\wifiCredentials.h"
+//#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\act\wifiCredentials.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\mqtt\linode\mqttCredentials.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\certs\linode\serverCert.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_topics\furnace\topicList-f1.h"
@@ -11,8 +11,8 @@
 #include "Adafruit_MAX31855.h"
 //#include "topicList.h"
 
-WiFiClientSecure espClient;
-PubSubClient client(espClient);
+WiFiClientSecure wifiClient;
+PubSubClient client(wifiClient);
 
 // MAX31855 digital IO pins mapped to ESP32 module.
 #define MAXDO 19
@@ -42,6 +42,7 @@ unsigned int length;
 String outPayload = "";
 //String outTopic = "";
 
+boolean pingConfirmed = false;
 boolean tcToggle =0;
 boolean in0Previous =0;
 boolean in1Previous =0;
@@ -63,6 +64,21 @@ unsigned long lastTimeIn2 =0;
 unsigned long lastTimeIn3 =0;
 unsigned long currentTime =0;
 
+unsigned long pubRate = 0;                    // MQTT initial connection timer
+unsigned long wdtPeriod = 60000;      //Time in between Heart beats for Watch Dog Timer
+unsigned long wdtPulse = 0;        //Time of last heart beat
+
+
+
+
+
+
+unsigned long currentMillis = 0;
+unsigned long previousMillis = 0;
+const long interval = 10000;  // interval to wait for Wi-Fi connection (milliseconds)
+
+const char* Version = "{\"Version\":\"low_prio_wifi_v2\"}";
+
 int publishInterval = 5000;   //number of milliseconds for periodic publishing data logging events
 int debounceDelay = 20;       //delay to ensure input signal debounce in milliseconds
 
@@ -72,6 +88,17 @@ void callback(char* inTopic, byte* inPayload, unsigned int length) {
   // unsubscribe as it may cause deadlocks when other things arrive while
   // sending and receiving acknowledgments. Instead, change a global variable,
   // or push to a queue and handle it in the loop after calling `client.loop()`.
+
+  if (strcmp(inTopic,inPing)==0){       //confirmation of conection success from broker
+   if (inPayload[0] == '1'){
+      pingConfirmed = true;
+      digitalWrite(statusLed, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": TRUE");
+      delay(250);
+      digitalWrite(statusLed, LOW);
+    }  
+  }
 
   if (strcmp(inTopic,inTopic0)==0){
    if (inPayload[0] == '1'){
@@ -129,12 +156,137 @@ return;
 }
 
 
+bool initConnections() {
+  if(WiFi.status() == WL_CONNECTED && client.connected() == true){
+    return true;
+  }
+  
+  Serial.println("");
+
+  digitalWrite(statusLed, HIGH);   //Indicate loss of connections
+
+  WiFi.disconnect();          //Close WiFi Connections before attempting to connect
+  pingConfirmed = false;
+
+  delay(1000);
+  Serial.println("MQTT and WiFi down: start WiFi");
+  
+  WiFi.mode(WIFI_STA);
+
+  WiFi.begin(wifiSSID, wifiPW);
+  Serial.println("Connecting to WiFi...");
+
+  //unsigned long currentMillis = millis();
+  currentMillis = millis();
+  previousMillis = currentMillis;
+
+  while(WiFi.status() != WL_CONNECTED) {
+    currentMillis = millis();
+
+    if (currentMillis - previousMillis >= interval) {
+      Serial.println("Failed to connect to WiFi...");
+      return false;
+    }
+  }
+  //Succeeded to connect to WiFi
+  digitalWrite(statusLed, HIGH);    //Indicate WiFi connection via the Staus LED
+  delay(250);
+  digitalWrite(statusLed, LOW);
+
+  Serial.println("WiFi Connected Mutha Fukaz!!!");
+
+  wifiClient.setCACert(test_root_ca);
+
+  //Attempt to connect with MQTT Server
+  Serial.println("WiFi up, MQTT down: start MQTT");
+  //digitalWrite(led1, HIGH);
+  delay(1000);
+  client.setServer(mqttServer, mqttPort);
+  client.connect(deviceID, mqttUser, mqttPW);
+  //client.setCallback(callback);
+      
+  // waitCount = 0;   ??? DUNNO
+
+  delay(200);
+  //unsigned long currentMillis = millis();
+  currentMillis = millis();
+  previousMillis = currentMillis;
+  Serial.println("Attempting connection to MQTT Server...");
+  while(client.connected() != true) {
+    currentMillis = millis();
+    if (currentMillis - previousMillis >= interval) {
+      Serial.println("Failed to connect to MQTT Server...");
+      //delay(5000);
+      return false;
+    }
+  }
+  Serial.println("WiFi up, MQTT up: Testing MQTT with a server ping...");
+  delay(100);
+  digitalWrite(statusLed, HIGH);    //Indicate MQTT connection via the Staus LED stays high
+
+  //Setting up the MQTT callback function
+  client.setCallback(callback);
+
+  //Setting up the MQTT messaging subscriptions
+  client.subscribe(inPing);
+  client.subscribe(inTopic0);
+  client.subscribe(inTopic1);
+  client.subscribe(inTopic2);
+  client.subscribe(inTopic3);
+
+  currentMillis = millis();
+  previousMillis = currentMillis;
+  Serial.println("Pinging the MQTT Server to verify connections...");
+  delay (100);   //See if this delay works...
+  while (!pingConfirmed){
+
+    if (millis() - pubRate > 500){  //Send a ping every 500ms
+      client.publish(outPing, "1", Version);
+      digitalWrite(statusLed, HIGH);
+      Serial.println("Ping Sent to MQTT Server");
+      pubRate = millis();
+      delay(250);
+      digitalWrite(statusLed, LOW);
+      delay(250);
+      digitalWrite(statusLed, HIGH);
+    }
+
+    currentMillis = millis();
+    if (currentMillis - previousMillis >= interval) {
+      Serial.println("MQTT Server response has not been received - Timeout");
+      delay(5000);
+      return false;
+    }
+
+    client.loop();            // internal household function for MQTT
+  }
+
+  //By now we have succeeded to connect with the MQTT Server and verified this with a ping response 
+  Serial.println("WiFi and MQTT connections have been verified with ping response!");
+  digitalWrite(statusLed, LOW);  
+  return true;
+}
+
+
+void wdt(){   //watch dog timer to send repeating MQTT ping messages for server-side connection awareness
+  if(millis()-wdtPulse > wdtPeriod){
+    wdtPulse = millis();
+    pingConfirmed = false;
+    Serial.println("Ping");
+    client.publish(outPing, "ping");              //      send status to broker
+    //client.loop();                                //      give control to MQTT to send message to broker
+    wdtPulse = millis();                          //      remember time of last sent status message
+    digitalWrite(statusLed,LOW);
+      delay(250);
+    digitalWrite(statusLed, HIGH);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(2000);
   Serial.println("running setup");
 
-  //pinMode(ONBOARD_LED, OUTPUT);
   pinMode(statusLed, OUTPUT);
   pinMode(MAXCS0, OUTPUT);
   pinMode(MAXCS1, OUTPUT);
@@ -146,7 +298,14 @@ void setup() {
   pinMode(in1, INPUT_PULLDOWN);
   pinMode(in2, INPUT_PULLDOWN);
   pinMode(in3, INPUT_PULLDOWN);
- 
+
+
+
+
+
+
+
+/*
   WiFi.begin(wifiSSID, wifiPW);
   espClient.setCACert(test_root_ca);
   //espClient.connect()
@@ -180,6 +339,10 @@ while (!client.connected()) {
   client.subscribe(inTopic1);
   client.subscribe(inTopic2);
   client.subscribe(inTopic3);
+*/
+
+
+
 
 //Max31855 Setup
 //  Serial.begin(9600);
@@ -213,13 +376,12 @@ while (!client.connected()) {
 
 
 void loop() {
-  // put your main code here, to run repeatedly:
 
-  client.loop();
-
+  if(initConnections()) {
+    client.loop();            // internal household function for MQTT
+    wdt();
+    
   currentTime = millis();
-
-
 
   if(currentTime-lastTime >= publishInterval){
     if(tcToggle){
@@ -380,4 +542,11 @@ in3Current = digitalRead(in3);
 
 
   delay(100);
+
+
+  }else {
+    //setupPortal();
+    //delay(1000);
+  }
+
 }
