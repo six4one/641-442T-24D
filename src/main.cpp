@@ -3,7 +3,8 @@
 #include <WiFiClientSecure.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\home\wifiCredentials.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\mqtt\linode\mqttCredentials.h"
-#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\certs\linode\serverCert.h"
+//#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\certs\linode\serverCert.h"
+#include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\certs\linode\2024-07-26.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_topics\furnace\topicList-f1.h"
 #include <PubSubClient.h>
 #include <SPI.h>
@@ -147,7 +148,7 @@ void setup() {
   pinMode(in3, INPUT_PULLDOWN);
  
   WiFi.begin(wifiSSID, wifiPW);
-  espClient.setCACert(test_root_ca);
+  espClient.setCACert(six4one_CA);
   //espClient.connect()
 
   while (WiFi.status() != WL_CONNECTED) {
