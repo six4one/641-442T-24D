@@ -323,166 +323,165 @@ void loop() {
       lastPing = millis();                          //      remember time of last sent status message
       digitalWrite(statusLed,LOW);
     }
-  }
-//    ArduinoOTA.handle();                            // internal household function for OTA
+    //}
+    //    ArduinoOTA.handle();                            // internal household function for OTA
 
-//Send periodic logging data to MQTT broker
-  if(currentTime-lastTime >= publishInterval){             //Thermocouple data publish period
-    if(tcToggle){             //Thermocouple(0) value
-      digitalWrite(MAXCS0, LOW);
-      double temp = thermocouple0.readCelsius();
-      digitalWrite(MAXCS0, HIGH);
-      if (isnan(temp)) {
-        Serial.println("Something wrong with thermocouple0!");
-      } else {
-        Serial.print("Temp 0 = ");
-        Serial.println(temp);
-        Serial.println(" °C");
-        //outTopic = "temp"; //temp0Topic;
-        outPayload = String(temp);
-        if (mqttClient.publish(temp0Topic, (char*) outPayload.c_str())){
-          Serial.println ("Publish ok");
-          Serial.println(temp0Topic);
-          lastTime = currentTime;
-        }else {
-          Serial.println("Thermocouple0 publish failed");
+    //Send periodic logging data to MQTT broker
+    if(currentTime-lastTime >= publishInterval){             //Thermocouple data publish period
+      if(tcToggle){             //Thermocouple(0) value
+        digitalWrite(MAXCS0, LOW);
+        double temp = thermocouple0.readCelsius();
+        digitalWrite(MAXCS0, HIGH);
+        if (isnan(temp)) {
+          Serial.println("Something wrong with thermocouple0!");
+        } else {
+          Serial.print("Temp 0 = ");
+          Serial.println(temp);
+          Serial.println(" °C");
+          //outTopic = "temp"; //temp0Topic;
+          outPayload = String(temp);
+          if (mqttClient.publish(temp0Topic, (char*) outPayload.c_str())){
+            Serial.println ("Publish ok");
+            Serial.println(temp0Topic);
+            lastTime = currentTime;
+          }else {
+            Serial.println("Thermocouple0 publish failed");
+          }
+        }
+      }else{             //Thermocouple(1) value
+        //Serial.print("Toggle is working");
+        digitalWrite(MAXCS1, LOW);
+        double temp = thermocouple1.readCelsius();
+        digitalWrite(MAXCS1, HIGH);
+        if (isnan(temp)) {
+          Serial.println("Something wrong with thermocouple1!");
+        } else {
+          Serial.print("Temp 1 = ");
+          Serial.println(temp);
+          Serial.println(" °C");
+          //outTopic = "temp"; //temp0Topic;
+          outPayload = String(temp);
+          if (mqttClient.publish(temp1Topic, (char*) outPayload.c_str())){
+            Serial.println ("Publish ok");
+            Serial.println(temp1Topic);
+            lastTime = currentTime;
+          }else {
+            Serial.println("Thermocouple1 publish failed");
+          }
+        }      
+      }
+    tcToggle = !tcToggle;
+    }
+
+    // Resolve the hardware inputs and publish their status to MQTT broker
+    in0Current = digitalRead(in0);
+    if(in0Current != in0Previous){
+      if (currentTime-lastTimeIn0 > debounceDelay){;    //debounce delay
+        if(in0Current != in0Previous){
+          if(in0Current == true){     //rising edge
+            outPayload = "1";
+            if (mqttClient.publish(outTopic0, (char*) outPayload.c_str())){
+              Serial.print(outTopic0);
+              Serial.println(": 1");
+            }else {
+                Serial.print("Publish failed");
+            }
+          }else{    //falling edge
+            outPayload = "0";
+            if (mqttClient.publish(outTopic0, (char*) outPayload.c_str())){
+              Serial.print(outTopic0);
+              Serial.println(": 0");
+            }else {
+                Serial.print("Publish failed");
+            }
+          }
+          in0Previous = in0Current;   
         }
       }
-    }else{             //Thermocouple(1) value
-      //Serial.print("Toggle is working");
-      digitalWrite(MAXCS1, LOW);
-      double temp = thermocouple1.readCelsius();
-      digitalWrite(MAXCS1, HIGH);
-      if (isnan(temp)) {
-        Serial.println("Something wrong with thermocouple1!");
-      } else {
-        Serial.print("Temp 1 = ");
-        Serial.println(temp);
-        Serial.println(" °C");
-        //outTopic = "temp"; //temp0Topic;
-        outPayload = String(temp);
-        if (mqttClient.publish(temp1Topic, (char*) outPayload.c_str())){
-          Serial.println ("Publish ok");
-          Serial.println(temp1Topic);
-          lastTime = currentTime;
-        }else {
-          Serial.println("Thermocouple1 publish failed");
-        }
-      }      
     }
-  tcToggle = !tcToggle;
-  }
 
-  // Resolve the hardware inputs and publish their status to MQTT broker
-  in0Current = digitalRead(in0);
-  if(in0Current != in0Previous){
-    if (currentTime-lastTimeIn0 > debounceDelay){;    //debounce delay
-      if(in0Current != in0Previous){
-        if(in0Current == true){     //rising edge
-          outPayload = "1";
-          if (mqttClient.publish(outTopic0, (char*) outPayload.c_str())){
-            Serial.print(outTopic0);
-            Serial.println(": 1");
-          }else {
-              Serial.print("Publish failed");
+    in1Current = digitalRead(in1);
+    if(in1Current != in1Previous){
+      if (currentTime-lastTimeIn1 > debounceDelay){;    //debounce delay
+        if(in1Current != in1Previous){
+          if(in1Current == true){     //rising edge
+            outPayload = "1";
+            if (mqttClient.publish(outTopic1, (char*) outPayload.c_str())){
+              Serial.print(outTopic1);
+              Serial.println(": 1");
+            }else {
+                Serial.println("Publish failed");
+            }
+          }else{    //falling edge
+            outPayload = "0";
+            if (mqttClient.publish(outTopic1, (char*) outPayload.c_str())){
+              Serial.print(outTopic1);
+              Serial.println(": 0");
+            }else {
+                Serial.println("Publish failed");
+            }
           }
-        }else{    //falling edge
-          outPayload = "0";
-          if (mqttClient.publish(outTopic0, (char*) outPayload.c_str())){
-            Serial.print(outTopic0);
-            Serial.println(": 0");
-          }else {
-              Serial.print("Publish failed");
-          }
+          in1Previous = in1Current;   
         }
-        in0Previous = in0Current;   
       }
     }
-  }
 
-  in1Current = digitalRead(in1);
-  if(in1Current != in1Previous){
-    if (currentTime-lastTimeIn1 > debounceDelay){;    //debounce delay
-      if(in1Current != in1Previous){
-        if(in1Current == true){     //rising edge
-          outPayload = "1";
-          if (mqttClient.publish(outTopic1, (char*) outPayload.c_str())){
-            Serial.print(outTopic1);
-            Serial.println(": 1");
-          }else {
-              Serial.println("Publish failed");
+
+    in2Current = digitalRead(in2);
+    if(in2Current != in2Previous){
+      if (currentTime-lastTimeIn2 > debounceDelay){;    //debounce delay
+        if(in2Current != in2Previous){
+          if(in2Current == true){     //rising edge
+            outPayload = "1";
+            if (mqttClient.publish(outTopic2, (char*) outPayload.c_str())){
+              Serial.print(outTopic2);
+              Serial.println(": 1");
+            }else {
+                Serial.println("Publish failed");
+            }
+          }else{    //falling edge
+            outPayload = "0";
+            if (mqttClient.publish(outTopic2, (char*) outPayload.c_str())){
+              Serial.print(outTopic2);
+              Serial.println(": 0");
+            }else {
+                Serial.println("Publish failed");
+            }
           }
-        }else{    //falling edge
-          outPayload = "0";
-          if (mqttClient.publish(outTopic1, (char*) outPayload.c_str())){
-            Serial.print(outTopic1);
-            Serial.println(": 0");
-          }else {
-              Serial.println("Publish failed");
-          }
+          in2Previous = in2Current;   
         }
-        in1Previous = in1Current;   
       }
     }
-  }
 
-
-  in2Current = digitalRead(in2);
-  if(in2Current != in2Previous){
-    if (currentTime-lastTimeIn2 > debounceDelay){;    //debounce delay
-      if(in2Current != in2Previous){
-        if(in2Current == true){     //rising edge
-          outPayload = "1";
-          if (mqttClient.publish(outTopic2, (char*) outPayload.c_str())){
-            Serial.print(outTopic2);
-            Serial.println(": 1");
-          }else {
-              Serial.println("Publish failed");
+    in3Current = digitalRead(in3);
+    if(in3Current != in3Previous){
+      if (currentTime-lastTimeIn3 > debounceDelay){;    //debounce delay
+        if(in3Current != in3Previous){
+          if(in3Current == true){     //rising edge
+            outPayload = "1";
+            if (mqttClient.publish(outTopic3, (char*) outPayload.c_str())){
+              Serial.print(outTopic3);
+              Serial.println(": 1");
+            }else {
+                Serial.println("Publish failed");
+            }
+          }else{    //falling edge
+            outPayload = "0";
+            if (mqttClient.publish(outTopic3, (char*) outPayload.c_str())){
+              Serial.print(outTopic3);
+              Serial.println(": 0");
+            }else {
+                Serial.println("Publish failed");
+            }
           }
-        }else{    //falling edge
-          outPayload = "0";
-          if (mqttClient.publish(outTopic2, (char*) outPayload.c_str())){
-            Serial.print(outTopic2);
-            Serial.println(": 0");
-          }else {
-              Serial.println("Publish failed");
-          }
+          in3Previous = in3Current;   
         }
-        in2Previous = in2Current;   
       }
     }
-  }
 
-  in3Current = digitalRead(in3);
-  if(in3Current != in3Previous){
-    if (currentTime-lastTimeIn3 > debounceDelay){;    //debounce delay
-      if(in3Current != in3Previous){
-        if(in3Current == true){     //rising edge
-          outPayload = "1";
-          if (mqttClient.publish(outTopic3, (char*) outPayload.c_str())){
-            Serial.print(outTopic3);
-            Serial.println(": 1");
-          }else {
-              Serial.println("Publish failed");
-          }
-        }else{    //falling edge
-          outPayload = "0";
-          if (mqttClient.publish(outTopic3, (char*) outPayload.c_str())){
-            Serial.print(outTopic3);
-            Serial.println(": 0");
-          }else {
-              Serial.println("Publish failed");
-          }
-        }
-        in3Previous = in3Current;   
-      }
-    }
-  }
+    mqttClient.loop();    // internal household function for MQTT
 
-
-
-mqttClient.loop();                                  // internal household function for MQTT
-// end of section for tasks where WiFi/MQTT are required
+  }           // end of section for tasks where WiFi/MQTT are required
 
 
 
