@@ -11,8 +11,20 @@
 #include "Adafruit_MAX31855.h"
 //#include "topicList.h"
 
-WiFiClientSecure espClient;
-PubSubClient client(espClient);
+unsigned long waitCount = 0;                 // counter
+uint8_t conn_stat = 0;                       // Connection status for WiFi and MQTT:
+                                             //
+                                             // status |   WiFi   |    MQTT
+                                             // -------+----------+------------
+                                             //      0 |   down   |    down
+                                             //      1 | starting |    down
+                                             //      2 |    up    |    down
+                                             //      3 |    up    |  starting
+                                             //      4 |    up    | finalising
+                                             //      5 |    up    |     up
+
+
+
 
 // MAX31855 digital IO pins mapped to ESP32 module.
 #define MAXDO 19
@@ -56,6 +68,10 @@ boolean in1State = false;
 boolean in2State = false;
 boolean in3State = false;
 
+boolean ledState = false;
+boolean txConfirmed = false;
+boolean pingConfirmed = false;
+
 unsigned long lastTime =0;
 unsigned long lastTimeIn0 =0;
 unsigned long lastTimeIn1 =0;
@@ -63,8 +79,22 @@ unsigned long lastTimeIn2 =0;
 unsigned long lastTimeIn3 =0;
 unsigned long currentTime =0;
 
+unsigned long lastStatus = 0;                 // counter in example code for conn_stat == 5
+unsigned long lastPing = 0;
+unsigned long lastTask = 0;                   // counter in example code for conn_stat <> 5
+unsigned long lastLED = 0;                    // counter in example code for led timer
+unsigned long pubRate = 0;                    // MQTT initial connection timer
+
+const char* Version = "{\"Version\":\"low_prio_wifi_v2\"}";
+
+int wifiConnectFlashPeriod = 300;
+int mqttConnectFlashPeriod = 1000;
+
 int publishInterval = 5000;   //number of milliseconds for periodic publishing data logging events
 int debounceDelay = 20;       //delay to ensure input signal debounce in milliseconds
+
+WiFiClientSecure wifiClient;
+PubSubClient mqttClient(wifiClient);
 
 void callback(char* inTopic, byte* inPayload, unsigned int length) {
  
@@ -73,9 +103,18 @@ void callback(char* inTopic, byte* inPayload, unsigned int length) {
   // sending and receiving acknowledgments. Instead, change a global variable,
   // or push to a queue and handle it in the loop after calling `client.loop()`.
 
+  if (strcmp(inTopic,inPing)==0){       //confirmation of conection success from broker
+   if (inPayload[0] == '1'){
+      //testConfirmed = true;
+      pingConfirmed = true;
+      digitalWrite(statusLed, LOW); 
+      Serial.print(inTopic);
+      Serial.println(": TRUE");
+    }  
+  }
+
   if (strcmp(inTopic,inTopic0)==0){
    if (inPayload[0] == '1'){
-      //out0State = true;    //force synchronization of the ledState variable with the MQTT switch
       digitalWrite(out0, HIGH); 
       Serial.print(inTopic);
       Serial.println(": ON");
@@ -88,7 +127,6 @@ void callback(char* inTopic, byte* inPayload, unsigned int length) {
 
   if (strcmp(inTopic,inTopic1)==0){
     if (inPayload[0] == '1'){
-      //out1State = true;    //force synchronization of the ledState variable with the MQTT switch
       digitalWrite(out1, HIGH); 
       Serial.print(inTopic);
       Serial.println(": ON");      
@@ -101,7 +139,6 @@ void callback(char* inTopic, byte* inPayload, unsigned int length) {
 
   if (strcmp(inTopic,inTopic2)==0){
     if (inPayload[0] == '1'){
-      //out2State = true;    //force synchronization of the ledState variable with the MQTT switch
       digitalWrite(out2, HIGH); 
       Serial.print(inTopic);
       Serial.println(": ON");      
@@ -114,7 +151,6 @@ void callback(char* inTopic, byte* inPayload, unsigned int length) {
 
   if (strcmp(inTopic,inTopic3)==0){
     if (inPayload[0] == '1'){
-      //out3State = true;    //force synchronization of the ledState variable with the MQTT switch
       digitalWrite(out3, HIGH); 
       Serial.print(inTopic);
       Serial.println(": ON");      
@@ -130,9 +166,6 @@ return;
 
 
 void setup() {
-  Serial.begin(115200);
-  delay(2000);
-  Serial.println("running setup");
 
   //pinMode(ONBOARD_LED, OUTPUT);
   pinMode(statusLed, OUTPUT);
@@ -146,7 +179,11 @@ void setup() {
   pinMode(in1, INPUT_PULLDOWN);
   pinMode(in2, INPUT_PULLDOWN);
   pinMode(in3, INPUT_PULLDOWN);
+
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);    // explicitly set mode, esp defaults to STA+AP
  
+ /*
   WiFi.begin(wifiSSID, wifiPW);
   espClient.setCACert(six4one_CA);
   //espClient.connect()
@@ -174,12 +211,8 @@ while (!client.connected()) {
  
   client.publish("esp/test", "Hello from ESP32");
   client.subscribe("esp/test");
+*/
 
-  //MQTT Subscriptions for control of digital outputs
-  client.subscribe(inTopic0);
-  client.subscribe(inTopic1);
-  client.subscribe(inTopic2);
-  client.subscribe(inTopic3);
 
 //Max31855 Setup
 //  Serial.begin(9600);
@@ -213,16 +246,89 @@ while (!client.connected()) {
 
 
 void loop() {
-  // put your main code here, to run repeatedly:
 
-  client.loop();
+// start of non-blocking connection setup section
+  if ((WiFi.status() != WL_CONNECTED) && (conn_stat != 1)) { conn_stat = 0; }
+  if ((WiFi.status() == WL_CONNECTED) && !mqttClient.connected() && (conn_stat != 3))  { conn_stat = 2; }
+  if ((WiFi.status() == WL_CONNECTED) && mqttClient.connected() && (conn_stat != 5)) { conn_stat = 4;}
+  switch (conn_stat) {
+    case 0:                                                       // MQTT and WiFi down: start WiFi
+      Serial.println("MQTT and WiFi down: start WiFi");
+      //testConfirmed = false;
+      //pingConfirmed = false;
+      WiFi.begin(wifiSSID, wifiPW);
+      wifiClient.setCACert(six4one_CA);
+      conn_stat = 1;
+      break;
+    case 1:                                                       // WiFi starting, do nothing here
+      Serial.println("WiFi starting, wait : "+ String(waitCount));
+      waitCount++;
+      break;
+    case 2:                                                       // WiFi up, MQTT down: start MQTT
+      Serial.println("WiFi up, MQTT down: start MQTT");
+      pingConfirmed = false;
+      digitalWrite(statusLed, HIGH);
+      mqttClient.setServer(mqttServer, mqttPort);
+      conn_stat = 3;
+      mqttClient.connect(deviceID, mqttUser, mqttPW);
+      waitCount = 0;
+      break;
+    case 3:                                                       // WiFi up, MQTT starting, do nothing here
+      Serial.println("WiFi up, MQTT starting, wait : "+ String(waitCount));
+      waitCount++;
+      break;
+    case 4:                                                       // WiFi up, MQTT up: finish MQTT configuration
+      if (millis() - pubRate > 500){
+        Serial.println("WiFi up, MQTT up: finish MQTT configuration");
+        //digitalWrite(led2,HIGH);
+        //lastLED = millis();
 
-  currentTime = millis();
+        //MQTT Subscriptions for control of digital outputs
+        
+        mqttClient.setCallback(callback);
+        mqttClient.subscribe(inPing);
+        mqttClient.subscribe(inTopic0);
+        mqttClient.subscribe(inTopic1);
+        mqttClient.subscribe(inTopic2);
+        mqttClient.subscribe(inTopic3);
+        mqttClient.publish(outPing, "Ping", Version);
+
+
+        pubRate = millis();   //???
+      }
+
+      if (millis() - lastLED > 500) {            // flash LEDs while waiting for response from MQTT broker
+        digitalWrite(statusLed, ledState); 
+        ledState = !ledState;
+        lastLED = millis();
+       }
+      if (pingConfirmed){
+        digitalWrite(statusLed, HIGH);  
+        conn_stat = 5;
+      }
+      waitCount = 0;                   
+      break;
+  }
+// end of non-blocking connection setup section
 
 
 
-  if(currentTime-lastTime >= publishInterval){
-    if(tcToggle){
+// start section with tasks where WiFi/MQTT is required
+  if (conn_stat == 5) {
+    if (millis() - lastPing >60000) {              // Send a ping to the broker every 60sec
+      pingConfirmed = false;
+      Serial.println("Ping");
+      mqttClient.publish(outPing, "Ping");              //      send status to broker
+      mqttClient.loop();                                //      give control to MQTT to send message to broker
+      lastPing = millis();                          //      remember time of last sent status message
+      digitalWrite(statusLed,LOW);
+    }
+  }
+//    ArduinoOTA.handle();                            // internal household function for OTA
+
+//Send periodic logging data to MQTT broker
+  if(currentTime-lastTime >= publishInterval){             //Thermocouple data publish period
+    if(tcToggle){             //Thermocouple(0) value
       digitalWrite(MAXCS0, LOW);
       double temp = thermocouple0.readCelsius();
       digitalWrite(MAXCS0, HIGH);
@@ -234,52 +340,47 @@ void loop() {
         Serial.println(" °C");
         //outTopic = "temp"; //temp0Topic;
         outPayload = String(temp);
-        if (client.publish(temp0Topic, (char*) outPayload.c_str())){
+        if (mqttClient.publish(temp0Topic, (char*) outPayload.c_str())){
           Serial.println ("Publish ok");
           Serial.println(temp0Topic);
           lastTime = currentTime;
         }else {
-          Serial.println("Publish failed");
+          Serial.println("Thermocouple0 publish failed");
         }
       }
-    }else{
+    }else{             //Thermocouple(1) value
       //Serial.print("Toggle is working");
       digitalWrite(MAXCS1, LOW);
       double temp = thermocouple1.readCelsius();
       digitalWrite(MAXCS1, HIGH);
       if (isnan(temp)) {
-        Serial.println("Something wrong with thermocouple0!");
+        Serial.println("Something wrong with thermocouple1!");
       } else {
         Serial.print("Temp 1 = ");
         Serial.println(temp);
         Serial.println(" °C");
         //outTopic = "temp"; //temp0Topic;
         outPayload = String(temp);
-        if (client.publish(temp1Topic, (char*) outPayload.c_str())){
+        if (mqttClient.publish(temp1Topic, (char*) outPayload.c_str())){
           Serial.println ("Publish ok");
           Serial.println(temp1Topic);
           lastTime = currentTime;
         }else {
-          Serial.println("Publish failed");
+          Serial.println("Thermocouple1 publish failed");
         }
       }      
     }
   tcToggle = !tcToggle;
-
-   //Serial.print("F = ");
-   //Serial.println(thermocouple.readFahrenheit());
   }
 
-
-
-  // Resolve the hardware inputs
+  // Resolve the hardware inputs and publish their status to MQTT broker
   in0Current = digitalRead(in0);
   if(in0Current != in0Previous){
     if (currentTime-lastTimeIn0 > debounceDelay){;    //debounce delay
       if(in0Current != in0Previous){
         if(in0Current == true){     //rising edge
           outPayload = "1";
-          if (client.publish(outTopic0, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic0, (char*) outPayload.c_str())){
             Serial.print(outTopic0);
             Serial.println(": 1");
           }else {
@@ -287,7 +388,7 @@ void loop() {
           }
         }else{    //falling edge
           outPayload = "0";
-          if (client.publish(outTopic0, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic0, (char*) outPayload.c_str())){
             Serial.print(outTopic0);
             Serial.println(": 0");
           }else {
@@ -305,7 +406,7 @@ void loop() {
       if(in1Current != in1Previous){
         if(in1Current == true){     //rising edge
           outPayload = "1";
-          if (client.publish(outTopic1, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic1, (char*) outPayload.c_str())){
             Serial.print(outTopic1);
             Serial.println(": 1");
           }else {
@@ -313,7 +414,7 @@ void loop() {
           }
         }else{    //falling edge
           outPayload = "0";
-          if (client.publish(outTopic1, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic1, (char*) outPayload.c_str())){
             Serial.print(outTopic1);
             Serial.println(": 0");
           }else {
@@ -332,7 +433,7 @@ void loop() {
       if(in2Current != in2Previous){
         if(in2Current == true){     //rising edge
           outPayload = "1";
-          if (client.publish(outTopic2, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic2, (char*) outPayload.c_str())){
             Serial.print(outTopic2);
             Serial.println(": 1");
           }else {
@@ -340,7 +441,7 @@ void loop() {
           }
         }else{    //falling edge
           outPayload = "0";
-          if (client.publish(outTopic2, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic2, (char*) outPayload.c_str())){
             Serial.print(outTopic2);
             Serial.println(": 0");
           }else {
@@ -352,13 +453,13 @@ void loop() {
     }
   }
 
-in3Current = digitalRead(in3);
+  in3Current = digitalRead(in3);
   if(in3Current != in3Previous){
     if (currentTime-lastTimeIn3 > debounceDelay){;    //debounce delay
       if(in3Current != in3Previous){
         if(in3Current == true){     //rising edge
           outPayload = "1";
-          if (client.publish(outTopic3, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic3, (char*) outPayload.c_str())){
             Serial.print(outTopic3);
             Serial.println(": 1");
           }else {
@@ -366,7 +467,7 @@ in3Current = digitalRead(in3);
           }
         }else{    //falling edge
           outPayload = "0";
-          if (client.publish(outTopic3, (char*) outPayload.c_str())){
+          if (mqttClient.publish(outTopic3, (char*) outPayload.c_str())){
             Serial.print(outTopic3);
             Serial.println(": 0");
           }else {
@@ -379,5 +480,15 @@ in3Current = digitalRead(in3);
   }
 
 
+
+mqttClient.loop();                                  // internal household function for MQTT
+// end of section for tasks where WiFi/MQTT are required
+
+
+
+// start section for tasks which should run regardless of WiFi/MQTT
+currentTime = millis();
+
   delay(100);
+// end of section for tasks which should run regardless of WiFi/MQTT
 }
