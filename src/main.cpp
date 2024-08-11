@@ -49,10 +49,9 @@ int in1 = 36;
 int in2 = 34;
 int in3 = 35;
 
-unsigned int length;
+unsigned int length;    //this var represents the length of the string returned from the MQTT callback
 
 String outPayload = "";
-//String outTopic = "";
 
 boolean tcToggle =0;
 boolean in0Previous =0;
@@ -69,7 +68,7 @@ boolean in2State = false;
 boolean in3State = false;
 
 boolean ledState = false;
-boolean txConfirmed = false;
+//boolean txConfirmed = false;
 boolean pingConfirmed = false;
 
 unsigned long lastTime =0;
@@ -78,6 +77,7 @@ unsigned long lastTimeIn1 =0;
 unsigned long lastTimeIn2 =0;
 unsigned long lastTimeIn3 =0;
 unsigned long currentTime =0;
+unsigned long statusFlashTime =0;
 
 unsigned long lastStatus = 0;                 // counter in example code for conn_stat == 5
 unsigned long lastPing = 0;
@@ -246,7 +246,7 @@ while (!client.connected()) {
 
 
 void loop() {
-
+  currentTime = millis();
 // start of non-blocking connection setup section
   if ((WiFi.status() != WL_CONNECTED) && (conn_stat != 1)) { conn_stat = 0; }
   if ((WiFi.status() == WL_CONNECTED) && !mqttClient.connected() && (conn_stat != 3))  { conn_stat = 2; }
@@ -263,6 +263,11 @@ void loop() {
     case 1:                                                       // WiFi starting, do nothing here
       Serial.println("WiFi starting, wait : "+ String(waitCount));
       waitCount++;
+      if (currentTime - statusFlashTime > wifiConnectFlashPeriod){  //Flash status LED to indicate WIFI is connecting
+        ledState = !ledState;
+        digitalWrite(statusLed, ledState);
+        statusFlashTime = currentTime;
+      }
       break;
     case 2:                                                       // WiFi up, MQTT down: start MQTT
       Serial.println("WiFi up, MQTT down: start MQTT");
@@ -276,32 +281,38 @@ void loop() {
     case 3:                                                       // WiFi up, MQTT starting, do nothing here
       Serial.println("WiFi up, MQTT starting, wait : "+ String(waitCount));
       waitCount++;
+      if (currentTime - statusFlashTime > mqttConnectFlashPeriod){  //Flash status LED to indicate MQTT is connecting
+        ledState = !ledState;
+        digitalWrite(statusLed, ledState);
+        statusFlashTime = currentTime;
+      }
       break;
     case 4:                                                       // WiFi up, MQTT up: finish MQTT configuration
-      if (millis() - pubRate > 500){
+      if (currentTime - pubRate > 500){
         Serial.println("WiFi up, MQTT up: finish MQTT configuration");
         //digitalWrite(led2,HIGH);
         //lastLED = millis();
+        mqttClient.setCallback(callback);
 
         //MQTT Subscriptions for control of digital outputs
-        
-        mqttClient.setCallback(callback);
         mqttClient.subscribe(inPing);
         mqttClient.subscribe(inTopic0);
         mqttClient.subscribe(inTopic1);
         mqttClient.subscribe(inTopic2);
         mqttClient.subscribe(inTopic3);
-        mqttClient.publish(outPing, "Ping", Version);
+        
+        //Send "Ping" to MQTT broker to test connectivity
+        mqttClient.publish(outPing, "Ping", Version); 
 
-
-        pubRate = millis();   //???
+        pubRate = currentTime;
       }
 
-      if (millis() - lastLED > 500) {            // flash LEDs while waiting for response from MQTT broker
-        digitalWrite(statusLed, ledState); 
+      if (currentTime - statusFlashTime > mqttConnectFlashPeriod){  //Flash status LED to indicate waiting for "Ping" response from MQTT broker
         ledState = !ledState;
-        lastLED = millis();
-       }
+        digitalWrite(statusLed, ledState);
+        statusFlashTime = currentTime;
+      }
+
       if (pingConfirmed){
         digitalWrite(statusLed, HIGH);  
         conn_stat = 5;
@@ -315,19 +326,18 @@ void loop() {
 
 // start section with tasks where WiFi/MQTT is required
   if (conn_stat == 5) {
-    if (millis() - lastPing >60000) {              // Send a ping to the broker every 60sec
+    if (millis() - lastPing >60000) {               // Send a ping to the broker every 60sec
       pingConfirmed = false;
       Serial.println("Ping");
-      mqttClient.publish(outPing, "Ping");              //      send status to broker
-      mqttClient.loop();                                //      give control to MQTT to send message to broker
+      mqttClient.publish(outPing, "Ping");          //      send status to broker
+      mqttClient.loop();                            //      give control to MQTT to send message to broker
       lastPing = millis();                          //      remember time of last sent status message
       digitalWrite(statusLed,LOW);
     }
-    //}
-    //    ArduinoOTA.handle();                            // internal household function for OTA
+    //    ArduinoOTA.handle();                      // internal household function for OTA
 
     //Send periodic logging data to MQTT broker
-    if(currentTime-lastTime >= publishInterval){             //Thermocouple data publish period
+    if(currentTime-lastTime >= publishInterval){    //Thermocouple data publish period
       if(tcToggle){             //Thermocouple(0) value
         digitalWrite(MAXCS0, LOW);
         double temp = thermocouple0.readCelsius();
@@ -488,6 +498,6 @@ void loop() {
 // start section for tasks which should run regardless of WiFi/MQTT
 currentTime = millis();
 
-  delay(100);
+  //delay(100);
 // end of section for tasks which should run regardless of WiFi/MQTT
 }
