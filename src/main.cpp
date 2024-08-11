@@ -96,73 +96,6 @@ int debounceDelay = 20;       //delay to ensure input signal debounce in millise
 WiFiClientSecure wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-void callback(char* inTopic, byte* inPayload, unsigned int length) {
- 
-  // Note: Do not use the client in the callback to publish, subscribe or
-  // unsubscribe as it may cause deadlocks when other things arrive while
-  // sending and receiving acknowledgments. Instead, change a global variable,
-  // or push to a queue and handle it in the loop after calling `client.loop()`.
-
-  if (strcmp(inTopic,inPing)==0){       //confirmation of conection success from broker
-   if (inPayload[0] == '1'){
-      //testConfirmed = true;
-      pingConfirmed = true;
-      digitalWrite(statusLed, LOW); 
-      Serial.print(inTopic);
-      Serial.println(": TRUE");
-    }  
-  }
-
-  if (strcmp(inTopic,inTopic0)==0){
-   if (inPayload[0] == '1'){
-      digitalWrite(out0, HIGH); 
-      Serial.print(inTopic);
-      Serial.println(": ON");
-    }else{
-      digitalWrite(out0, LOW);
-      Serial.print(inTopic);
-      Serial.println(": OFF");
-    }  
-  }
-
-  if (strcmp(inTopic,inTopic1)==0){
-    if (inPayload[0] == '1'){
-      digitalWrite(out1, HIGH); 
-      Serial.print(inTopic);
-      Serial.println(": ON");      
-    }else{
-      digitalWrite(out1, LOW);
-      Serial.print(inTopic);
-      Serial.println(": OFF");    
-    }
-  }
-
-  if (strcmp(inTopic,inTopic2)==0){
-    if (inPayload[0] == '1'){
-      digitalWrite(out2, HIGH); 
-      Serial.print(inTopic);
-      Serial.println(": ON");      
-    }else{
-      digitalWrite(out2, LOW);
-      Serial.print(inTopic);
-      Serial.println(": OFF");    
-    }
-  }
-
-  if (strcmp(inTopic,inTopic3)==0){
-    if (inPayload[0] == '1'){
-      digitalWrite(out3, HIGH); 
-      Serial.print(inTopic);
-      Serial.println(": ON");      
-    }else{
-      digitalWrite(out3, LOW);
-      Serial.print(inTopic);
-      Serial.println(": OFF");    
-    }
-  }
-
-return;  
-}
 
 
 void setup() {
@@ -243,6 +176,76 @@ while (!client.connected()) {
 }
 
 
+void callback(char* inTopic, byte* inPayload, unsigned int length) {
+ 
+  // Note: Do not use the client in the callback to publish, subscribe or
+  // unsubscribe as it may cause deadlocks when other things arrive while
+  // sending and receiving acknowledgments. Instead, change a global variable,
+  // or push to a queue and handle it in the loop after calling `client.loop()`.
+
+
+  Serial.println("You've got mail!");
+
+  if (strcmp(inTopic,inPing)==0){       //confirmation of conection success from broker
+   if (inPayload[0] == '1'){
+      //testConfirmed = true;
+      pingConfirmed = true;
+      digitalWrite(statusLed, LOW); 
+      Serial.print(inTopic);
+      Serial.println(": TRUE");
+    }  
+  }
+
+  if (strcmp(inTopic,inTopic0)==0){
+   if (inPayload[0] == '1'){
+      digitalWrite(out0, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": ON");
+    }else{
+      digitalWrite(out0, LOW);
+      Serial.print(inTopic);
+      Serial.println(": OFF");
+    }  
+  }
+
+  if (strcmp(inTopic,inTopic1)==0){
+    if (inPayload[0] == '1'){
+      digitalWrite(out1, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": ON");      
+    }else{
+      digitalWrite(out1, LOW);
+      Serial.print(inTopic);
+      Serial.println(": OFF");    
+    }
+  }
+
+  if (strcmp(inTopic,inTopic2)==0){
+    if (inPayload[0] == '1'){
+      digitalWrite(out2, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": ON");      
+    }else{
+      digitalWrite(out2, LOW);
+      Serial.print(inTopic);
+      Serial.println(": OFF");    
+    }
+  }
+
+  if (strcmp(inTopic,inTopic3)==0){
+    if (inPayload[0] == '1'){
+      digitalWrite(out3, HIGH); 
+      Serial.print(inTopic);
+      Serial.println(": ON");      
+    }else{
+      digitalWrite(out3, LOW);
+      Serial.print(inTopic);
+      Serial.println(": OFF");    
+    }
+  }
+
+return;  
+}
 
 
 void loop() {
@@ -288,12 +291,12 @@ void loop() {
       }
       break;
     case 4:                                                       // WiFi up, MQTT up: finish MQTT configuration
-      if (currentTime - pubRate > 500){
+      if (currentTime - pubRate > 5000){
         Serial.println("WiFi up, MQTT up: finish MQTT configuration");
         //digitalWrite(led2,HIGH);
         //lastLED = millis();
         mqttClient.setCallback(callback);
-
+        delay(2000);
         //MQTT Subscriptions for control of digital outputs
         mqttClient.subscribe(inPing);
         mqttClient.subscribe(inTopic0);
@@ -302,7 +305,9 @@ void loop() {
         mqttClient.subscribe(inTopic3);
         
         //Send "Ping" to MQTT broker to test connectivity
-        mqttClient.publish(outPing, "Ping", Version); 
+        //mqttClient.publish(outPing, "Ping", Version);
+        mqttClient.publish(outPing, "Ping");
+        Serial.println("Ping sent"); 
 
         pubRate = currentTime;
       }
