@@ -277,6 +277,7 @@ void loop() {
       pingConfirmed = false;
       digitalWrite(statusLed, HIGH);
       mqttClient.setServer(mqttServer, mqttPort);
+      mqttClient.setCallback(callback);
       conn_stat = 3;
       mqttClient.connect(deviceID, mqttUser, mqttPW);
       waitCount = 0;
@@ -295,7 +296,7 @@ void loop() {
         Serial.println("WiFi up, MQTT up: finish MQTT configuration");
         //digitalWrite(led2,HIGH);
         //lastLED = millis();
-        mqttClient.setCallback(callback);
+        
         delay(2000);
         //MQTT Subscriptions for control of digital outputs
         mqttClient.subscribe(inPing);
