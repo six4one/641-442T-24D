@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <wire.h>
+#include <wire.h> //I2C library
 #include <WiFiClientSecure.h>
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\wifi\home\wifiCredentials.h"
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_credentials\mqtt\linode\mqttCredentials.h"
@@ -8,7 +8,7 @@
 #include "D:\Personal\Fausto\Documents\PlatformIO\Projects\0_topics\furnace\topicList-f1.h"
 #include <PubSubClient.h>
 #include <SPI.h>
-#include "Adafruit_MAX31855.h"
+#include "Adafruit_MAX31855.h"    //Strain gauge IC Library
 //#include "topicList.h"
 
 unsigned long waitCount = 0;                 // counter
@@ -266,6 +266,8 @@ void loop() {
       Serial.println("MQTT and WiFi down: start WiFi");
       //testConfirmed = false;
       pingConfirmed = false;
+      WiFi.disconnect();
+      
       WiFi.begin(wifiSSID, wifiPW);
       wifiClient.setCACert(six4one_CA);
       conn_stat = 1;
@@ -281,6 +283,9 @@ void loop() {
       }
       break;
     case 2:                                                       // WiFi up, MQTT down: start MQTT
+      //MQTTDISCONNECT;
+      mqttClient.disconnect();
+
       Serial.println("WiFi up, MQTT down: start MQTT");
       pingConfirmed = false;
       digitalWrite(statusLed, HIGH);
