@@ -78,6 +78,7 @@ unsigned long lastTimeIn2 =0;
 unsigned long lastTimeIn3 =0;
 unsigned long currentTime =0;
 unsigned long statusFlashTime =0;
+unsigned long connectionRetryTime =0;
 
 unsigned long lastStatus = 0;                 // counter in example code for conn_stat == 5
 unsigned long lastPing = 0;
@@ -88,7 +89,8 @@ unsigned long pubRate = 0;                    // MQTT initial connection timer
 const char* Version = "{\"Version\":\"low_prio_wifi_v2\"}";
 
 int wifiConnectFlashPeriod = 300;
-int mqttConnectFlashPeriod = 1000;
+int mqttConnectFlashPeriod = 100;
+int connectionRetryPeriod = 10000;
 
 int publishInterval = 5000;   //number of milliseconds for periodic publishing data logging events
 int debounceDelay = 20;       //delay to ensure input signal debounce in milliseconds
@@ -256,10 +258,12 @@ void loop() {
     Serial.println("Connection Status : " + String(conn_stat));
   }
   if ((WiFi.status() == WL_CONNECTED) && !mqttClient.connected() && (conn_stat != 3))  {
-    conn_stat = 2; 
+    conn_stat = 2;
+    Serial.println("Connection Status : " + String(conn_stat));
   }
   if ((WiFi.status() == WL_CONNECTED) && mqttClient.connected() && (conn_stat != 5)) {
     conn_stat = 4;
+    Serial.println("Connection Status : " + String(conn_stat));
   }
   switch (conn_stat) {
     case 0:                                                       // MQTT and WiFi down: start WiFi
@@ -270,8 +274,11 @@ void loop() {
       
       WiFi.begin(wifiSSID, wifiPW);
       wifiClient.setCACert(six4one_CA);
+      waitCount = 0;
       conn_stat = 1;
       Serial.println("Connection Status : " + String(conn_stat));
+      //delay(1000);
+      connectionRetryTime = currentTime;
       break;
     case 1:                                                       // WiFi starting, do nothing here
       Serial.println("WiFi starting, wait : "+ String(waitCount));
@@ -281,6 +288,11 @@ void loop() {
         digitalWrite(statusLed, ledState);
         statusFlashTime = currentTime;
       }
+      if (currentTime-connectionRetryTime > connectionRetryPeriod){
+        Serial.println("Restarting WIFI connection attempt");
+        conn_stat = 0;
+      }
+      //delay(1000);
       break;
     case 2:                                                       // WiFi up, MQTT down: start MQTT
       //MQTTDISCONNECT;
@@ -291,20 +303,28 @@ void loop() {
       digitalWrite(statusLed, HIGH);
       mqttClient.setServer(mqttServer, mqttPort);
       mqttClient.setCallback(callback);
+      waitCount = 0;
       conn_stat = 3;
       Serial.println("Connection Status : " + String(conn_stat));
       mqttClient.connect(deviceID, mqttUser, mqttPW);
-      waitCount = 0;
+      connectionRetryTime = currentTime;
+      //delay(1000);
       break;
     case 3:                                                       // WiFi up, MQTT starting, do nothing here
       Serial.println("Connection Status : " + String(conn_stat));
       Serial.println("WiFi up, MQTT starting, wait : "+ String(waitCount));
       waitCount++;
-      if (currentTime - statusFlashTime > mqttConnectFlashPeriod){  //Flash status LED to indicate MQTT is connecting
+      if (currentTime - statusFlashTime > 100){  //Flash status LED to indicate MQTT is connecting
         ledState = !ledState;
         digitalWrite(statusLed, ledState);
         statusFlashTime = currentTime;
       }
+      if (currentTime-connectionRetryTime > connectionRetryPeriod){
+        Serial.println("Restarting MQTT connection attempt");
+        waitCount = 0;
+        conn_stat = 2;
+      }
+      //delay(1000);
       break;
     case 4:                                                       // WiFi up, MQTT up: finish MQTT configuration
       
@@ -325,7 +345,8 @@ void loop() {
         //Send "Ping" to MQTT broker to test connectivity
         //mqttClient.publish(outPing, "Ping", Version);
         mqttClient.publish(outPing, "Ping");
-        Serial.println("Ping sent"); 
+        Serial.println("Ping sent");
+        mqttClient.loop();    //Service the MQTT routine
 
         pubRate = currentTime;
       }
@@ -337,11 +358,13 @@ void loop() {
       }
 
       if (pingConfirmed){
-        digitalWrite(statusLed, HIGH);  
+        digitalWrite(statusLed, HIGH);
+        waitCount = 0;  
         conn_stat = 5;
         Serial.println("Connection Status : " + String(conn_stat));
       }
-      waitCount = 0;                   
+      waitCount = 0;
+      //delay(1000);                   
       break;
   }
 // end of non-blocking connection setup section
