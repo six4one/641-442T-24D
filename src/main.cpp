@@ -88,8 +88,8 @@ unsigned long pubRate = 0;                    // MQTT initial connection timer
 
 const char* Version = "{\"Version\":\"low_prio_wifi_v2\"}";
 
-int wifiConnectFlashPeriod = 300;
-int mqttConnectFlashPeriod = 100;
+int wifiConnectFlashPeriod = 200;
+int mqttConnectFlashPeriod = 50;
 int connectionRetryPeriod = 10000;
 
 int publishInterval = 5000;   //number of milliseconds for periodic publishing data logging events
@@ -358,8 +358,8 @@ void loop() {
       }
 
       if (pingConfirmed){
-        digitalWrite(statusLed, HIGH);
-        waitCount = 0;  
+        waitCount = 0;
+        digitalWrite(statusLed, HIGH);  
         conn_stat = 5;
         Serial.println("Connection Status : " + String(conn_stat));
       }
@@ -373,13 +373,16 @@ void loop() {
 
 // start section with tasks where WiFi/MQTT is required
   if (conn_stat == 5) {
-    if (millis() - lastPing >60000) {               // Send a ping to the broker every 60sec
+    if (currentTime - lastPing >60000) {       // Send a ping to the broker every 60sec
       pingConfirmed = false;
       Serial.println("Ping");
-      mqttClient.publish(outPing, "Ping");          //      send status to broker
-      mqttClient.loop();                            //      give control to MQTT to send message to broker
-      lastPing = millis();                          //      remember time of last sent status message
-      digitalWrite(statusLed,LOW);
+      mqttClient.publish(outPing, "Ping");     // send status to broker
+      mqttClient.loop();                       // give control to MQTT to send message to broker
+      lastPing = currentTime;                  // remember time of last sent status message
+      digitalWrite(statusLed,LOW);             // pulse satatus LED off to indicate ping sent to broker
+    }
+    if(currentTime - lastPing > 1000){
+      digitalWrite(statusLed,HIGH);            // pulse satatus LED on to indicate ping sent to broker
     }
     //    ArduinoOTA.handle();                      // internal household function for OTA
 
