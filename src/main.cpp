@@ -251,17 +251,25 @@ return;
 void loop() {
   currentTime = millis();
 // start of non-blocking connection setup section
-  if ((WiFi.status() != WL_CONNECTED) && (conn_stat != 1)) { conn_stat = 0; }
-  if ((WiFi.status() == WL_CONNECTED) && !mqttClient.connected() && (conn_stat != 3))  { conn_stat = 2; }
-  if ((WiFi.status() == WL_CONNECTED) && mqttClient.connected() && (conn_stat != 5)) { conn_stat = 4;}
+  if ((WiFi.status() != WL_CONNECTED) && (conn_stat != 1)) {
+    conn_stat = 0;
+    Serial.println("Connection Status : " + String(conn_stat));
+  }
+  if ((WiFi.status() == WL_CONNECTED) && !mqttClient.connected() && (conn_stat != 3))  {
+    conn_stat = 2; 
+  }
+  if ((WiFi.status() == WL_CONNECTED) && mqttClient.connected() && (conn_stat != 5)) {
+    conn_stat = 4;
+  }
   switch (conn_stat) {
     case 0:                                                       // MQTT and WiFi down: start WiFi
       Serial.println("MQTT and WiFi down: start WiFi");
       //testConfirmed = false;
-      //pingConfirmed = false;
+      pingConfirmed = false;
       WiFi.begin(wifiSSID, wifiPW);
       wifiClient.setCACert(six4one_CA);
       conn_stat = 1;
+      Serial.println("Connection Status : " + String(conn_stat));
       break;
     case 1:                                                       // WiFi starting, do nothing here
       Serial.println("WiFi starting, wait : "+ String(waitCount));
@@ -279,10 +287,12 @@ void loop() {
       mqttClient.setServer(mqttServer, mqttPort);
       mqttClient.setCallback(callback);
       conn_stat = 3;
+      Serial.println("Connection Status : " + String(conn_stat));
       mqttClient.connect(deviceID, mqttUser, mqttPW);
       waitCount = 0;
       break;
     case 3:                                                       // WiFi up, MQTT starting, do nothing here
+      Serial.println("Connection Status : " + String(conn_stat));
       Serial.println("WiFi up, MQTT starting, wait : "+ String(waitCount));
       waitCount++;
       if (currentTime - statusFlashTime > mqttConnectFlashPeriod){  //Flash status LED to indicate MQTT is connecting
@@ -292,12 +302,14 @@ void loop() {
       }
       break;
     case 4:                                                       // WiFi up, MQTT up: finish MQTT configuration
+      
       if (currentTime - pubRate > 5000){
+        Serial.println("Connection Status : " + String(conn_stat));
         Serial.println("WiFi up, MQTT up: finish MQTT configuration");
         //digitalWrite(led2,HIGH);
         //lastLED = millis();
         
-        delay(2000);
+        //delay(2000);
         //MQTT Subscriptions for control of digital outputs
         mqttClient.subscribe(inPing);
         mqttClient.subscribe(inTopic0);
@@ -322,6 +334,7 @@ void loop() {
       if (pingConfirmed){
         digitalWrite(statusLed, HIGH);  
         conn_stat = 5;
+        Serial.println("Connection Status : " + String(conn_stat));
       }
       waitCount = 0;                   
       break;
